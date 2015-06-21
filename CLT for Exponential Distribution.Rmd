@@ -1,0 +1,136 @@
+---
+title: "Application of the Central Limit Theorem to the exponential distribution"
+author: "Chris Lill"
+date: "Monday, June 15, 2015"
+output: pdf_document
+---
+
+# Overview
+This course project investigates the Central Limit Theorem, and it's application to the mean of observations from the exponential distribution. This is particularly interesting when you look at the difference between the exponential distribution, and the fact that distribution of its sample means will converge to a normal distribution for large samples.
+
+```{r echo=FALSE, fig.height=3}
+library(ggplot2)
+suppressMessages(library(pastecs))
+ggplot(data.frame(x = c(0, 10)), aes(x)) +
+    stat_function(fun = dexp, 
+                  args = list(rate = 0.2),
+                  aes(colour = 'Exponential')) + 
+    stat_function(fun = dnorm, 
+                  args = list(mean = 5, 
+                              sd = 0.7905694),
+                  aes(colour = 'Mean of 40 Exponentials')) + 
+    scale_colour_discrete(name = 'Theoretical distribution') + 
+    theme(legend.position = c(0.8, 0.75)) + 
+    labs(title = "Exponential distribution vs distribution of sample means",
+         x = "", 
+         y = "Probability density")
+```
+
+# Simulations
+This investigation created a distribution of 1000 means, stored in a vector named means. Each of these means was generated from 40 observations from an exponential distribution with a lambda value of 0.2. This should give a distribution large enough to illustrate the Central Limit Theorem. 
+
+The following R code was used:
+```{r eval=TRUE}
+set.seed(1234)
+collection.size <- 40
+lambda <- 0.2
+number.simulations <- 1000
+
+means = NULL
+for (i in 1 : number.simulations) {
+    collection <- rexp(collection.size, lambda)
+    means = c(means, mean(collection))
+}
+```
+
+\newpage
+
+# Sample Mean versus Theoretical Mean
+In this analysis, the distribution is represented by 1000 observations of the mean of 40 exponentials. The sample mean of this distribution can be calculated in R.
+
+$$
+Sample Mean = mean(means) = `r round(mean(means), 3)`
+$$
+
+The theoretical mean of the distribution is the same as the mean of the underlying exponential distribution. The mean of the exponential distribution is 1/lambda.
+
+$$
+Theoretical Mean = \frac{1}{\lambda}  =  \frac{1}{0.2} = 5.000
+$$
+
+The 95% confidence interval for the theoretical mean of the distribution can be calculated using the standard error of the distribution (of 1000 observations). This in turn can be calculated from the standard error of 40 observations from the exponential distribution.
+
+```{r echo = FALSE}
+ci <- 1/lambda + c(-1,1) * qnorm(0.975) * (1/(lambda * sqrt(40 * 1000)))
+```
+$$
+Confidence Interval = \frac{1}{\lambda} \pm 1.96 \frac{1}{\lambda \sqrt{40 \times 1000}} = `r round(ci, 3)`
+$$
+
+The sample mean lies within the 95% confidence interval of the distribution, therefore this supports the validity of the Central Limit Theorem for distributions of 1000 observations. 
+
+```{r, echo=FALSE, fig.height=4}
+means.df <- data.frame(means)
+labels.df <- data.frame(description = c("Sample", 
+                                        "Theoretical", 
+                                        "z95% Confidence", 
+                                        "z95% Confidence"),
+                        mean = c(mean(means), 5, ci),
+                        stringsAsFactors = FALSE)
+g1 <- ggplot(means.df, aes(x = means)) +
+    geom_histogram(alpha = 0.4) + 
+    geom_vline(data = labels.df, 
+               aes(xintercept = mean, colour = description),
+               show_guide = TRUE) + 
+        scale_colour_discrete('Mean') + 
+    xlim(3.5, 6.5) +
+    theme(legend.position = c(0.86, 0.83)) + 
+    labs(title = "Sample and theoretical means of the distribution of 1000 observations", 
+         x = "Means of 40 Exponentials")
+suppressMessages(print(g1))
+```
+
+\newpage
+
+# Sample Variance versus Theoretical Variance
+The sample variance of the distribution can be calculated in R by using the var() function.
+
+$$
+Sample Variance = var(means) = `r round(var(means), 3)`
+$$
+
+The theoretical variance is equal to the standard error of the mean of 40 exponentials. The standard deviation of the exponential distribution is 1/$\lambda$. 
+
+$$
+Theoretical Variance = \frac{1}{\lambda^2 \times 40} = `r 1 / ((lambda ^ 2) * collection.size)`
+$$
+
+There is a 9% difference between these two values. For a more meaningful comparison a normal distribution with the sample mean and sample variance has been added in blue to the plot below. This shows that the sample variance is a good approximation to the theoretical variance.
+
+# Distribution
+The histogram below shows the probability densities for the sample and theoretical distributions. 
+
+There are statistical methods for testing whether a distribution is approximately normal, by calculating their skew (`r round(stat.desc(means, basic = FALSE, norm = TRUE)["skewness"], 3)`) and kurtosis (`r round(stat.desc(means, basic = FALSE, norm = TRUE)["kurtosis"], 3)`). This can be calculated in R using the stat.desc function from the pastecs library. However testing the significance of these values isn't appropriate for large samples because the small standard error makes the measure inaccurate.
+
+Instead, a simple inspection of the distribution is sufficient to conclude that the sample distribution is approximately normal. This is a very good indication that the Central Limit Theorem holds true for large samples of means from the exponential distribution, and that a normal distribution is a good approximation for samples >= 1000.
+
+```{r, echo=FALSE, fig.height=4}
+g2 <- ggplot(means.df, aes(x = means)) + 
+    geom_histogram(aes(y = ..density..), alpha = 0.4) + 
+    stat_function(fun = dnorm, 
+                  args = list(mean(means), 
+                              sd(means)),
+                  aes(colour = 'zSample variance (normal)')) +
+    stat_function(fun = dnorm, 
+                  args = list(mean = 1/lambda, 
+                              sd = 1/(lambda * sqrt(collection.size))),
+                  aes(colour = 'Theoretical (normal)')) +
+    geom_line(aes(y = ..density.., colour = 'Sample'), stat = 'density') +
+    scale_colour_discrete(name = 'Distribution') +
+    theme(legend.position = c(0.8, 0.8)) + 
+    labs(title = "Comparison of the distribution of 1000 observations", 
+         x = "Mean of 40 Exponentials", 
+         y = "Probability density")
+suppressMessages(print(g2))
+```
+
